@@ -1,5 +1,5 @@
 #!/bin/bash
-# HyprAI Installation Script - Final Stable Version for Arch Linux + Hyprland
+# HyprAI Installation Script - Final Clean Version (Arch + Hyprland)
 
 set -e
 
@@ -31,28 +31,28 @@ ok() { echo -e "${GREEN}[✓]${NC} $1"; }
 warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 err() { echo -e "${RED}[✗]${NC} $1"; }
 
-# ────────────────────────────────────────────────
+# -----------------------------------------------------------
 # SYSTEM CHECKS
-# ────────────────────────────────────────────────
+# -----------------------------------------------------------
 
-log "Checking system…"
+log "Checking system compatibility…"
 
 if [ ! -f /etc/arch-release ]; then
-    err "This script only supports Arch Linux."
+    err "This installer only supports Arch Linux."
     exit 1
 fi
 
-if ! pgrep -x Hyprland > /dev/null; then
-    warn "Hyprland is not running. Some automation features may not work."
+if ! pgrep -x Hyprland >/dev/null; then
+    warn "Hyprland is not running. Automation features may not work fully."
 else
     ok "Hyprland detected"
 fi
 
-ok "System OK"
+ok "System check passed"
 
-# ────────────────────────────────────────────────
-# INSTALL SYSTEM DEPENDENCIES
-# ────────────────────────────────────────────────
+# -----------------------------------------------------------
+# SYSTEM DEPENDENCIES
+# -----------------------------------------------------------
 
 PAC_DEPS=(
     python python-pip python-virtualenv
@@ -62,46 +62,47 @@ PAC_DEPS=(
 
 AUR_DEPS=( ydotool wlrctl )
 
-log "Checking dependencies..."
+log "Checking pacman packages…"
 
 MISSING=()
 for pkg in "${PAC_DEPS[@]}"; do
-    pacman -Qi "$pkg" >/dev/null 2>&1 || MISSING+=("$pkg")
+    pacman -Qi "$pkg" &>/dev/null || MISSING+=("$pkg")
 done
 
 if [ ${#MISSING[@]} -gt 0 ]; then
-    log "Installing missing pacman packages: ${MISSING[*]}"
+    log "Installing: ${MISSING[*]}"
     sudo pacman -S --needed --noconfirm "${MISSING[@]}"
 fi
 
-# Install AUR deps
+log "Checking AUR packages…"
+
 for pkg in "${AUR_DEPS[@]}"; do
     if ! command -v "$pkg" >/dev/null 2>&1; then
         warn "$pkg missing — installing from AUR"
-        if command -v yay >/dev/null 2>&1; then
+        if command -v yay >/dev/null; then
             yay -S --needed --noconfirm "$pkg"
-        elif command -v paru >/dev/null 2>&1; then
+        elif command -v paru >/dev/null; then
             paru -S --needed --noconfirm "$pkg"
         else
-            err "No AUR helper found — install yay or paru"
+            err "No AUR helper found. Install yay or paru."
             exit 1
         fi
     fi
 done
 
-ok "All system dependencies installed"
+ok "All dependencies installed"
 
-# ────────────────────────────────────────────────
-# DIRECTORY SETUP
-# ────────────────────────────────────────────────
+# -----------------------------------------------------------
+# DIRECTORIES
+# -----------------------------------------------------------
 
 log "Preparing directories…"
 mkdir -p "$INSTALL_DIR" "$CONFIG_DIR" "$INSTALL_DIR/logs"
 ok "Directories ready"
 
-# ────────────────────────────────────────────────
+# -----------------------------------------------------------
 # PYTHON VENV + DEPENDENCIES
-# ────────────────────────────────────────────────
+# -----------------------------------------------------------
 
 log "Creating Python virtual environment…"
 
@@ -111,35 +112,35 @@ fi
 
 source "$VENV_DIR/bin/activate"
 
-log "Installing Python dependencies into venv…"
+log "Installing Python dependencies…"
 
 pip install --upgrade pip
 pip install flask flask-cors python-dotenv pillow requests google-generativeai aiohttp websockets fastapi uvicorn
 
-ok "Python environment ready"
+ok "Python venv ready"
 
-# ────────────────────────────────────────────────
-# COPY PROJECT FILES
-# ────────────────────────────────────────────────
+# -----------------------------------------------------------
+# INSTALL PROJECT FILES
+# -----------------------------------------------------------
 
-log "Installing HyprAI core files…"
+log "Copying HyprAI components…"
 
 cp -r daemon "$INSTALL_DIR/"
 cp -r web "$INSTALL_DIR/"
 cp -r scripts "$INSTALL_DIR/"
 
-ok "Files installed into $INSTALL_DIR"
+ok "Project installed to $INSTALL_DIR"
 
-# ────────────────────────────────────────────────
-# API KEY CONFIGURATION
-# ────────────────────────────────────────────────
+# -----------------------------------------------------------
+# GEMINI API CONFIG
+# -----------------------------------------------------------
 
-log "API Key Setup"
-echo -e "Visit: ${BLUE}https://makersuite.google.com/app/apikey${NC}"
+log "Gemini API Configuration"
+echo -e "Get your key at: ${BLUE}https://makersuite.google.com/app/apikey${NC}"
 read -p "Enter your Gemini API key: " API_KEY
 
 if [ -z "$API_KEY" ]; then
-    err "API key required!"
+    err "API key is required!"
     exit 1
 fi
 
@@ -158,13 +159,13 @@ enable_shell = true
 EOF
 
 chmod 600 "$CONFIG_DIR/config.ini"
-ok "Config saved"
+ok "Config saved to $CONFIG_DIR/config.ini"
 
-# ────────────────────────────────────────────────
-# DATABASE INITIALIZATION
-# ────────────────────────────────────────────────
+# -----------------------------------------------------------
+# DATABASE
+# -----------------------------------------------------------
 
-log "Creating database…"
+log "Initializing local database…"
 
 python3 << PYEOF
 import sqlite3
@@ -182,19 +183,19 @@ PYEOF
 
 ok "Database initialized"
 
-# ────────────────────────────────────────────────
+# -----------------------------------------------------------
 # INITIAL SYSTEM ANALYSIS
-# ────────────────────────────────────────────────
+# -----------------------------------------------------------
 
-log "Running initial system analysis…"
+log "Running first-time system analysis…"
 python3 "$INSTALL_DIR/scripts/analyze_system.py" "$CONFIG_DIR" "$DB_PATH" || warn "Analysis script failed (non-fatal)"
-ok "System analyzed"
+ok "System analysis complete"
 
-# ────────────────────────────────────────────────
-# SYSTEMD SERVICE
-# ────────────────────────────────────────────────
+# -----------------------------------------------------------
+# SYSTEMD USER SERVICE
+# -----------------------------------------------------------
 
-log "Creating systemd service…"
+log "Creating systemd user service…"
 
 SERVICE="$HOME/.config/systemd/user/hyprai.service"
 
@@ -220,31 +221,38 @@ systemctl --user enable hyprai.service
 
 ok "Systemd service installed"
 
-# ────────────────────────────────────────────────
-# ydotool setup
-# ────────────────────────────────────────────────
+# -----------------------------------------------------------
+# YDOTOOL FIX (NO SERVICE)
+# -----------------------------------------------------------
 
-log "Enabling ydotool…"
-sudo systemctl enable --now ydotool
+log "Configuring ydotool permissions (no service)…"
+
 sudo usermod -aG input "$USER"
 
-# ────────────────────────────────────────────────
+sudo bash -c 'cat > /etc/udev/rules.d/70-ydotool.rules << EOF
+KERNEL=="uinput", MODE="0660", GROUP="input", OPTIONS+="static_node=uinput"
+EOF'
+
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+
+ok "ydotool configured — logout/login REQUIRED"
+
+# -----------------------------------------------------------
 # DONE
-# ────────────────────────────────────────────────
+# -----------------------------------------------------------
 
 echo -e "${GREEN}"
 echo "=========================================="
-echo "       HyprAI Installation Complete!"
+echo "      HyprAI Installation Complete!"
 echo "=========================================="
 echo -e "${NC}"
 
-echo -e "Start HyprAI daemon:"
+echo -e "Start HyprAI:"
 echo -e "  ${BLUE}systemctl --user start hyprai${NC}"
-echo ""
 
-echo -e "Dashboard:"
+echo -e "\nDashboard:"
 echo -e "  ${BLUE}http://localhost:8765${NC}"
-echo ""
 
-echo -e "${YELLOW}You may need to log out and back in to apply input group changes.${NC}"
+echo -e "\n${YELLOW}Logout and log back in to activate ydotool permissions.${NC}"
 
