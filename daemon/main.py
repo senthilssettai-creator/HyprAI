@@ -11,6 +11,10 @@ import sys
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
+# Ensure repo root is on sys.path so "core" and "api" imports resolve
+ROOT = Path(__file__).resolve().parents[1]  # daemon/.. => repo root
+sys.path.insert(0, str(ROOT))
+
 from core.config_manager import ConfigManager
 from core.context_engine import ContextEngine
 from core.hyprland_monitor import HyprlandMonitor
@@ -27,7 +31,8 @@ logger = logging.getLogger("HyprAI")
 
 class HyprAIDaemon:
     def __init__(self):
-        self.config = ConfigManager()
+        cfg_path = str(Path.home() / ".config" / "hyprai" / "config.ini")
+        self.config = ConfigManager(cfg_path)
         self.context = ContextEngine(self.config)
         self.hyprland = HyprlandMonitor(self.context)
         self.dispatcher = ActionDispatcher(self.config, self.context)
