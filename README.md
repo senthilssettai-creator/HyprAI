@@ -33,7 +33,7 @@ HyprAI is a sophisticated AI assistant that has complete awareness and control o
 
 ```bash
 # Clone or download this repository
-git clone <your-repo-url> HyprAI
+git clone https://github.com/senthilssettai-creator/HyprAI
 cd HyprAI
 
 
