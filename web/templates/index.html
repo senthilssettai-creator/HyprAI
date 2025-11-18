@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HyprAI Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 HyprAI</h1>
+            <p>Advanced AI Desktop Automation</p>
+            <div id="status" class="status">
+                <span class="status-dot"></span>
+                <span id="status-text">Connecting...</span>
+            </div>
+        </header>
+
+
+        <div class="main-content">
+            <div class="chat-container">
+                <div id="chat-messages" class="chat-messages"></div>
+                
+                <div class="input-container">
+                    <textarea 
+                        id="user-input" 
+                        placeholder="Ask me anything... (e.g., 'Open Firefox on workspace 2', 'What's on my screen?', 'Run my deploy script')"
+                        rows="3"
+                    ></textarea>
+                    <div class="input-controls">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="include-screenshot">
+                            Include Screenshot (Vision)
+                        </label>
+                        <button id="send-btn" class="btn-primary">Send</button>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="sidebar">
+                <div class="card">
+                    <h3>System State</h3>
+                    <div id="system-info">
+                        <div class="info-item">
+                            <span class="label">Active Window:</span>
+                            <span id="active-window">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Workspace:</span>
+                            <span id="workspace">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Open Windows:</span>
+                            <span id="window-count">-</span>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="card">
+                    <h3>Quick Actions</h3>
+                    <button class="btn-secondary" onclick="quickAction('Take a screenshot and describe what you see')">
+                        📸 Analyze Screen
+                    </button>
+                    <button class="btn-secondary" onclick="quickAction('Show me my system resource usage')">
+                        📊 System Stats
+                    </button>
+                    <button class="btn-secondary" onclick="quickAction('List all my workspaces and windows')">
+                        🪟 Window Overview
+                    </button>
+                </div>
+
+
+                <div class="card">
+                    <h3>Recent Commands</h3>
+                    <div id="recent-commands" class="command-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
