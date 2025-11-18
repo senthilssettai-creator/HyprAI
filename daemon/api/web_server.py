@@ -1,74 +1,52 @@
-"""Flask web server for dashboard"""
-from flask import Flask, render_template, request, jsonify
-from flask_cors import CORS
-import logging
+"""FastAPI web server for HyprAI dashboard."""
+
 import asyncio
-from functools import wraps
+import logging
+import uvicorn
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from typing import Optional
 
-
-logger = logging.getLogger('WebServer')
-
-
-def async_route(f):
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        return asyncio.run(f(*args, **kwargs))
-    return wrapper
+logger = logging.getLogger("WebServer")
 
 
 class WebServer:
     def __init__(self, config, daemon):
         self.config = config
         self.daemon = daemon
-        self.app = Flask(__name__, 
-                         template_folder='../web/templates',
-                         static_folder='../web/static')
-        CORS(self.app)
-        
+        self.app = FastAPI()
+        # mount static web folder (relative to project install path)
+        # The installation copies `web/` under the install dir, and systemd's working dir is the home
+        self.app.mount("/", StaticFiles(directory=str(config.get("system", "web_dir", fallback="web")), html=True), name="web")
         self._setup_routes()
-        
+        self._server = None
+
     def _setup_routes(self):
-        @self.app.route('/')
-        def index():
-            return render_template('index.html')
-        
-        @self.app.route('/api/query', methods=['POST'])
-        @async_route
-        async def api_query():
-            data = request.json
-            query = data.get('query')
-            screenshot = data.get('screenshot', False)
-            
-            if not query:
-                return jsonify({'error': 'No query provided'}), 400
-            
-            result = await self.daemon.process_user_query(query, screenshot)
-            return jsonify(result)
-        
-        @self.app.route('/api/status', methods=['GET'])
-        @async_route
-        async def api_status():
+        @self.app.get("/api/status")
+        async def status():
             state = await self.daemon.context._update_system_state()
-            return jsonify({
-                'status': 'running',
-                'system_state': state
-            })
-    
+            return JSONResponse({"status": "running", "system_state": state})
+
+        @self.app.post("/api/query")
+        async def query(req: Request):
+            body = await req.json()
+            q = body.get("query")
+            include_screenshot = body.get("screenshot", False)
+            if not q:
+                return JSONResponse({"error": "no query provided"}, status_code=400)
+            res = await self.daemon.process_user_query(q, include_screenshot)
+            return JSONResponse(res)
+
     async def start(self):
-        """Start web server"""
-        from threading import Thread
-        
-        def run():
-            self.app.run(
-                host='127.0.0.1',
-                port=self.config.port,
-                debug=False,
-                use_reloader=False
-            )
-        
-        thread = Thread(target=run, daemon=True)
-        thread.start()
-        logger.info(f"Web server started on port {self.config.port}")
-    
+        # Run uvicorn in background thread
+        self._server = uvicorn.Server(
+            config=uvicorn.Config(self.app, host="127.0.0.1", port=int(self.config.get("system", "port", fallback=8765)), log_level="info")
+        )
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self._server.run)
+
     async def stop(self):
-        logger.info("Web server stopped")
+        if self._server:
+            self._server.should_exit = True
+            logger.info("Web server stopping")
